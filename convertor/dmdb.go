@@ -13,6 +13,7 @@ import (
 var _ Element = (*dmdbDropTableIfExists)(nil)
 var _ Element = (*dmdbCreateTable)(nil)
 var _ Element = (*dmdbTableColumn)(nil)
+var _ Element = (*dmdbColumnComment)(nil)
 
 var mysqlWithDMDatatypeMapping = map[string]string{
 	"varchar":   "varchar2",
@@ -70,47 +71,94 @@ func (o *DMDB) Exec() (string, error) {
 		}
 
 		switch ddl := st.(type) {
-		case *sqlparser.DBDDL:
-			panic(ddl)
 		case *sqlparser.DDL:
 			switch ddl.Action {
 			case sqlparser.DropStr:
 				container.Append(&dmdbDropTableIfExists{DDL: ddl})
 			case sqlparser.CreateStr:
 				container.Append(&dmdbCreateTable{
-					DDL:             ddl,
-					columnContainer: NewContainer(),
-					sb:              &strings.Builder{},
+					DDL:                     ddl,
+					columnContainer:         NewContainer(),
+					columnCommentsContainer: NewContainer(),
+					indexContainer:          NewContainer(),
+					sb:                      &strings.Builder{},
 				})
 			}
 		}
 	}
-	return container.Render(), nil
+	return container.Render("\n"), nil
 }
 
 type dmdbCreateTable struct {
 	*sqlparser.DDL
-	columnContainer *Container
-	sb              *strings.Builder
+	columnContainer         *Container // 列
+	columnCommentsContainer *Container // 列注释
+	indexContainer          *Container
+	sb                      *strings.Builder
 }
 
 func (o *dmdbCreateTable) Format() string {
+	tableName := o.Table.Name.String()
+
 	for _, column := range o.DDL.TableSpec.Columns {
 		o.columnContainer.Append(&dmdbTableColumn{ColumnDefinition: column})
+		// 生成表中的字段注释
+		if column.Type.Comment != nil {
+			o.columnCommentsContainer.Append(&dmdbColumnComment{
+				tableName:        tableName,
+				ColumnDefinition: column,
+			})
+		}
 	}
-	// columnSQL := o.columnContainer.Render()
+	for _, index := range o.DDL.TableSpec.Indexes {
+		o.indexContainer.Append(&dmdbTableIndex{
+			tableName:       tableName,
+			IndexDefinition: index,
+		})
+	}
 
-	// TODO 生成表中的字段注释
+	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (", tableName))
+	o.sb.WriteString(o.columnContainer.Render(",\n"))
+	o.sb.WriteString(");")
+
+	// table index
+	o.sb.WriteString(o.indexContainer.Render("\n"))
+
+	// table comment
+	opt := parseMysqlTableOptions(o.DDL.TableSpec.Options)
+	if comment, found := opt.options["comment"]; found {
+		o.sb.WriteString(fmt.Sprintf(`COMMENT ON TABLE "%v" IS '%v';`, o.DDL.Table.Name, comment))
+	}
 	return ""
 }
 
-func (o *dmdbCreateTable) AppendClient(e Element) {
-	// TODO implement me
-	panic("implement me")
+type dmdbTableIndex struct {
+	tableName string
+	*sqlparser.IndexDefinition
+}
+
+func (t *dmdbTableIndex) Format() string {
+	var info = t.IndexDefinition.Info
+	var indexName = t.IndexDefinition.Info.Name.String()
+	var sb strings.Builder
+
+	if info.Primary {
+		// 主键索引
+		_, _ = fmt.Fprintf(&sb, "ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s);",
+			t.tableName, buildPKName(t.IndexDefinition.Columns)), buildIndexColumns(t.IndexDefinition.Columns)
+	} else if info.Unique {
+		// 唯一索引
+		_, _ = fmt.Fprintf(&sb, "CREATE UNIQUE INDEX %s ON %s(%s);",
+			indexName, t.tableName, buildIndexColumns(t.IndexDefinition.Columns))
+	} else {
+		// 普通索引
+		_, _ = fmt.Fprintf(&sb, "CREATE INDEX %s ON %s(%s);",
+			indexName, t.tableName, buildIndexColumns(t.IndexDefinition.Columns))
+	}
+	return sb.String()
 }
 
 type dmdbTableColumn struct {
-	defaultElement
 	*sqlparser.ColumnDefinition
 }
 
@@ -141,10 +189,6 @@ func (o *dmdbTableColumn) Format() string {
 		sb.WriteString("NOT NULL")
 		sb.WriteByte(' ')
 	}
-
-	// TODO append column COMMENT
-
-	sb.WriteByte(',')
 	return sb.String()
 }
 
@@ -179,12 +223,24 @@ func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnType sqlpa
 		"date", "datetime":
 		// ignore
 	default:
-		log.Fatalf("undeliverable date type '%s'", columnType)
+		log.Fatalf("undeliverable date type '%v'", columnType)
 	}
 }
 
+type dmdbColumnComment struct {
+	tableName string
+	*sqlparser.ColumnDefinition
+}
+
+func (d *dmdbColumnComment) Format() string {
+	if d.ColumnDefinition.Type.Comment != nil {
+		return fmt.Sprintf(`COMMENT ON COLUMN %s.%s IS '%v';`,
+			d.tableName, d.ColumnDefinition.Name, d.ColumnDefinition.Type.Comment)
+	}
+	return ""
+}
+
 type dmdbDropTableIfExists struct {
-	defaultElement
 	*sqlparser.DDL
 }
 

@@ -6,7 +6,6 @@ import (
 
 type Element interface {
 	Format() string
-	AppendClient(e Element)
 }
 
 func NewContainer() *Container {
@@ -22,16 +21,14 @@ func (c *Container) Append(f Element) {
 }
 
 // Render 将container输出为string
-func (c *Container) Render() string {
+func (c *Container) Render(lineSuffix string) string {
 	var sb strings.Builder
 
 	for _, e := range c.list {
 		sb.WriteString(e.Format())
+		if len(lineSuffix) > 0 {
+			sb.WriteString(lineSuffix)
+		}
 	}
 	return sb.String()
 }
-
-type defaultElement struct {
-}
-
-func (d *defaultElement) AppendClient(e Element) {}

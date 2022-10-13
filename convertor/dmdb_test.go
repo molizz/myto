@@ -36,7 +36,7 @@ func TestOracle_Exec(t *testing.T) {
 				"PRIMARY KEY (`uuid`),\n  UNIQUE KEY `team_number` (`team_uuid`,`number`),\n  " +
 				"KEY `idx_team_chart_path` (`team_uuid`,`chart_uuid`,`path`)\n" +
 				") " +
-				"ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;\n" +
+				"ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin COMMENT='标签库';\n" +
 				"/*!40101 SET character_set_client = @saved_cs_client */;",
 		},
 	}
