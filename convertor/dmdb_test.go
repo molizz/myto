@@ -2,6 +2,7 @@ package convertor
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,8 +49,11 @@ func TestOracle_Exec(t *testing.T) {
 			o := NewDMDB(st)
 			got, err := o.Exec()
 			assert.Nil(t, err)
-			assert.Equal(t, "", got)
-			fmt.Println(got)
+			assert.NotEqual(t, "", got)
+
+			f, _ := ioutil.TempFile("", "myto")
+			_, _ = f.WriteString(got)
+			fmt.Println(f.Name())
 		})
 	}
 }

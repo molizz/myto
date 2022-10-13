@@ -81,12 +81,11 @@ func (o *DMDB) Exec() (string, error) {
 					columnContainer:         NewContainer(),
 					columnCommentsContainer: NewContainer(),
 					indexContainer:          NewContainer(),
-					sb:                      &strings.Builder{},
 				})
 			}
 		}
 	}
-	return container.Render("\n"), nil
+	return container.Render("\n\n"), nil
 }
 
 type dmdbCreateTable struct {
@@ -94,11 +93,11 @@ type dmdbCreateTable struct {
 	columnContainer         *Container // 列
 	columnCommentsContainer *Container // 列注释
 	indexContainer          *Container
-	sb                      *strings.Builder
+	sb                      strings.Builder
 }
 
 func (o *dmdbCreateTable) Format() string {
-	tableName := o.Table.Name.String()
+	tableName := o.NewName.Name.String()
 
 	for _, column := range o.DDL.TableSpec.Columns {
 		o.columnContainer.Append(&dmdbTableColumn{ColumnDefinition: column})
@@ -117,9 +116,9 @@ func (o *dmdbCreateTable) Format() string {
 		})
 	}
 
-	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (", tableName))
+	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", tableName))
 	o.sb.WriteString(o.columnContainer.Render(",\n"))
-	o.sb.WriteString(");")
+	o.sb.WriteString("\n);\n")
 
 	// table index
 	o.sb.WriteString(o.indexContainer.Render("\n"))
@@ -127,9 +126,9 @@ func (o *dmdbCreateTable) Format() string {
 	// table comment
 	opt := parseMysqlTableOptions(o.DDL.TableSpec.Options)
 	if comment, found := opt.options["comment"]; found {
-		o.sb.WriteString(fmt.Sprintf(`COMMENT ON TABLE "%v" IS '%v';`, o.DDL.Table.Name, comment))
+		o.sb.WriteString(fmt.Sprintf(`COMMENT ON TABLE "%v" IS '%v';`, tableName, comment))
 	}
-	return ""
+	return o.sb.String()
 }
 
 type dmdbTableIndex struct {
