@@ -34,13 +34,13 @@ var mysqlWithDMDatatypeMapping = map[string]string{
 	"double":    "double",
 
 	"text":       "clob",
+	"longtext":   "clob",
 	"tinyblob":   "blob",
 	"tinytext":   "varchar2",
 	"blob":       "blob",
 	"mediumblob": "blob",
 	"mediumtext": "text",
 	"longblob":   "blob",
-	"longtext":   "text",
 	"bool":       "boolean",
 	"boolean":    "boolean",
 
@@ -145,7 +145,7 @@ func (t *dmdbTableIndex) Format() string {
 	if info.Primary {
 		// 主键索引
 		_, _ = fmt.Fprintf(&sb, "ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s);",
-			t.tableName, buildPKName(t.IndexDefinition.Columns)), buildIndexColumns(t.IndexDefinition.Columns)
+			t.tableName, buildPKName(t.IndexDefinition.Columns), buildIndexColumns(t.IndexDefinition.Columns))
 	} else if info.Unique {
 		// 唯一索引
 		_, _ = fmt.Fprintf(&sb, "CREATE UNIQUE INDEX %s ON %s(%s);",
@@ -216,9 +216,9 @@ func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnType sqlpa
 		} else if columnType.Length != nil {
 			sb.WriteString(fmt.Sprintf("(%v,0)", columnType.Length))
 		}
-	case "emun", "set":
+	case "enum", "set":
 		sb.WriteString(fmt.Sprintf("(%s)", strings.Join(columnType.EnumValues, ", ")))
-	case "text", "mediumtext",
+	case "text", "mediumtext", "longtext",
 		"boolean", "bool",
 		"date", "datetime":
 		// ignore

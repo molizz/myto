@@ -1,6 +1,7 @@
 package convertor
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,6 +49,7 @@ func TestOracle_Exec(t *testing.T) {
 			got, err := o.Exec()
 			assert.Nil(t, err)
 			assert.Equal(t, "", got)
+			fmt.Println(got)
 		})
 	}
 }
