@@ -33,8 +33,8 @@ var mysqlWithDMDatatypeMapping = map[string]string{
 	"float":     "float",
 	"double":    "double",
 
-	"text":       "clob",
-	"longtext":   "clob",
+	"text":       "text",
+	"longtext":   "text",
 	"tinyblob":   "blob",
 	"tinytext":   "varchar2",
 	"blob":       "blob",
@@ -172,8 +172,8 @@ func (o *dmdbTableColumn) Format() string {
 	sb.WriteByte(' ')
 
 	// column type name
-	if _, found := mysqlWithDMDatatypeMapping[columnType.Type]; found {
-		sb.WriteString(fmt.Sprintf("%s", columnType.Type))
+	if t, found := mysqlWithDMDatatypeMapping[columnType.Type]; found {
+		sb.WriteString(fmt.Sprintf("%s", t))
 	} else {
 		log.Fatalf("the mysql column mapping was not found")
 		return ""
