@@ -11,6 +11,13 @@ orcaleDDLSql, err := myto.New(sql, isDDL).ToDMDB()
 fmt.Println(dmDDLSql)
 ```
 
+#### cli
+```shell
+cat cli/test.sql | go run cli/main.go
+```
+
+
+
 
 ## 参考文献
 

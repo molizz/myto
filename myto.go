@@ -15,13 +15,13 @@ type Myto struct {
 	sqlTokenizer *sqlparser.Tokenizer
 }
 
-func New(sql string, isDDL bool) (*Myto, error) {
+func New(sql string, isDDL bool) *Myto {
 	sqlTokenizer := sqlparser.NewStringTokenizer(sql)
 	return &Myto{
 		sql:          sql,
 		isDDL:        isDDL,
 		sqlTokenizer: sqlTokenizer,
-	}, nil
+	}
 }
 
 // ToDMDB 达梦数据库
