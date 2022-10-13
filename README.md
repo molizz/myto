@@ -7,8 +7,8 @@ mysql sql convert to X sql.
 ## 使用 
 
 ```golang
-orcaleDDLSql, err := myto.New(sql, isDDL).ToDMDB()
-fmt.Println(dmDDLSql)
+ddlSql, err := myto.New(sql, isDDL).ToDMDB()
+fmt.Println(ddlSql)
 ```
 
 #### cli

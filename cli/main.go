@@ -18,7 +18,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	input, err := io.ReadAll(reader)
 	if err != nil {
-		log.Panicf("can't read std input, %+v", err)
+		log.Panicf("STD input is required, %+v", err)
 	}
 
 	output, err := myto.New(string(input), true).ToDMDB()

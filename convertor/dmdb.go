@@ -2,12 +2,13 @@ package convertor
 
 import (
 	"fmt"
-	"github.com/xwb1989/sqlparser"
 	"io"
 	"log"
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/xwb1989/sqlparser"
 )
 
 var _ Element = (*dmdbDropTableIfExists)(nil)
@@ -71,6 +72,7 @@ func (o *DMDB) Exec() (string, error) {
 		}
 
 		switch ddl := st.(type) {
+		// TODO view table
 		case *sqlparser.DDL:
 			switch ddl.Action {
 			case sqlparser.DropStr:
@@ -128,6 +130,9 @@ func (o *dmdbCreateTable) Format() string {
 	if comment, found := opt.options["comment"]; found {
 		o.sb.WriteString(fmt.Sprintf(`COMMENT ON TABLE "%v" IS '%v';`, tableName, comment))
 	}
+
+	// table column comment
+	o.sb.WriteString(o.columnCommentsContainer.Render("\n"))
 	return o.sb.String()
 }
 
