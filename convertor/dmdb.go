@@ -87,7 +87,7 @@ func (o *DMDB) Exec() (string, error) {
 			}
 		}
 	}
-	return container.Render("\n\n"), nil
+	return container.Render("\n"), nil
 }
 
 type dmdbCreateTable struct {
@@ -120,7 +120,7 @@ func (o *dmdbCreateTable) Format() string {
 
 	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", tableName))
 	o.sb.WriteString(o.columnContainer.Render(",\n"))
-	o.sb.WriteString("\n);\n")
+	o.sb.WriteString(");\n")
 
 	// table index
 	o.sb.WriteString(o.indexContainer.Render("\n"))
@@ -128,7 +128,7 @@ func (o *dmdbCreateTable) Format() string {
 	// table comment
 	opt := parseMysqlTableOptions(o.DDL.TableSpec.Options)
 	if comment, found := opt.options["comment"]; found {
-		o.sb.WriteString(fmt.Sprintf(`COMMENT ON TABLE "%v" IS '%v';`, tableName, comment))
+		o.sb.WriteString(fmt.Sprintf("COMMENT ON TABLE %v IS '%v';\n", tableName, comment))
 	}
 
 	// table column comment
@@ -238,8 +238,8 @@ type dmdbColumnComment struct {
 
 func (d *dmdbColumnComment) Format() string {
 	if d.ColumnDefinition.Type.Comment != nil {
-		return fmt.Sprintf(`COMMENT ON COLUMN %s.%s IS '%v';`,
-			d.tableName, d.ColumnDefinition.Name, d.ColumnDefinition.Type.Comment)
+		return fmt.Sprintf(`COMMENT ON COLUMN %s.%s IS '%s';`,
+			d.tableName, d.ColumnDefinition.Name, d.ColumnDefinition.Type.Comment.Val)
 	}
 	return ""
 }
