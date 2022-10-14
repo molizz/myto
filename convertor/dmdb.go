@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/xwb1989/sqlparser"
 )
@@ -53,6 +54,9 @@ var mysqlWithDMDatatypeMapping = map[string]string{
 
 	"json": "text",
 }
+
+// 只执行一次的json约束
+var jsonConstraintOnce sync.Once
 
 type DMDB struct {
 	sqlTokenizer *sqlparser.Tokenizer
@@ -239,7 +243,12 @@ func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnName strin
 	case "enum", "set":
 		sb.WriteString(fmt.Sprintf("(64) CHECK(%s IN (%s))", columnName, strings.Join(columnType.EnumValues, ", ")))
 	case "json":
-		sb.WriteString(fmt.Sprintf(" CONSTRAINT ensure_json CHECK (%s IS JSON)", columnName))
+		// 改约束只创建一次
+		jsonConstraintOnce.Do(func() {
+			sb.WriteString(" CONSTRAINT ensure_json")
+		})
+		sb.WriteString(fmt.Sprintf(" CHECK (%s IS JSON)", columnName))
+
 	case "text", "mediumtext", "longtext",
 		"boolean", "bool",
 		"date", "datetime",
@@ -281,7 +290,7 @@ END;`, buildTableName(d.Table.Name.String()))
 
 func buildColumnName(columnName string) string {
 	if IsDMKeyword(columnName) {
-		fmt.Sprintf(`"%s"`, columnName)
+		return fmt.Sprintf(`"%s"`, columnName)
 	}
 	return columnName
 }
