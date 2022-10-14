@@ -50,6 +50,8 @@ var mysqlWithDMDatatypeMapping = map[string]string{
 
 	"enum": "varchar2",
 	"set":  "varchar2",
+
+	"json": "text",
 }
 
 type DMDB struct {
@@ -120,7 +122,7 @@ func (o *dmdbCreateTable) Format() string {
 
 	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", tableName))
 	o.sb.WriteString(o.columnContainer.Render())
-	o.sb.WriteString(");\n/\n")
+	o.sb.WriteString(");\n")
 
 	// table index
 	o.sb.WriteString(o.indexContainer.Render())
@@ -153,18 +155,26 @@ func (t *dmdbTableIndex) Format() string {
 		return c
 	}
 
+	// 下面的indexName 会加上表名的原因是因为在达梦（pg等数据库）中，索引名称是数据库下唯一的
+	// 所以，如果sql查询语句中存在 force index的语法，应该去掉
 	if info.Primary {
 		// 主键索引
 		_, _ = fmt.Fprintf(&sb, "ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s);",
-			t.tableName, buildPKName(t.IndexDefinition.Columns), buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
+			t.tableName,
+			buildPKName(t.tableName, t.IndexDefinition.Columns),
+			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	} else if info.Unique {
 		// 唯一索引
 		_, _ = fmt.Fprintf(&sb, "CREATE UNIQUE INDEX %s ON %s(%s);",
-			indexName, t.tableName, buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
+			buildIdxName("unq_", t.tableName, indexName),
+			t.tableName,
+			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	} else {
 		// 普通索引
 		_, _ = fmt.Fprintf(&sb, "CREATE INDEX %s ON %s(%s);",
-			indexName, t.tableName, buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
+			buildIdxName("idx_", t.tableName, indexName),
+			t.tableName,
+			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	}
 	return sb.String()
 }
@@ -193,7 +203,7 @@ func (o *dmdbTableColumn) Format() string {
 	if t, found := mysqlWithDMDatatypeMapping[columnType.Type]; found {
 		sb.WriteString(fmt.Sprintf("%s", t))
 	} else {
-		log.Fatalf("the mysql column mapping was not found")
+		log.Fatalf("the mysql column type '%v' mapping was not found", columnType.Type)
 		return ""
 	}
 
@@ -234,6 +244,8 @@ func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnName strin
 		}
 	case "enum", "set":
 		sb.WriteString(fmt.Sprintf("(64) CHECK(%s IN (%s))", columnName, strings.Join(columnType.EnumValues, ", ")))
+	case "json":
+		sb.WriteString(fmt.Sprintf(" CONSTRAINT ensure_json CHECK (%s IS JSON)", columnName))
 	case "text", "mediumtext", "longtext",
 		"boolean", "bool",
 		"date", "datetime",

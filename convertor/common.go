@@ -45,10 +45,21 @@ func parseMysqlTableOptions(options string) *TableOptions {
 	return &TableOptions{result}
 }
 
-func buildPKName(indexColumns []*sqlparser.IndexColumn) string {
+func buildPKName(tableName string, indexColumns []*sqlparser.IndexColumn) string {
 	var sb strings.Builder
 	sb.WriteString("pk_")
+	sb.WriteString(tableName)
+	sb.WriteString("_")
 	sb.WriteString(joinIndexColumns(indexColumns, "_", nil))
+	return sb.String()
+}
+
+func buildIdxName(prefix, tableName, oldIndexName string) string {
+	var sb strings.Builder
+	sb.WriteString(prefix)
+	sb.WriteString(tableName)
+	sb.WriteString("_")
+	sb.WriteString(oldIndexName)
 	return sb.String()
 }
 
