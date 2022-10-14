@@ -12,8 +12,17 @@ func NewContainer() *Container {
 	return &Container{}
 }
 
+func NewContainerWithSuffix(suffix string, ignore bool) *Container {
+	c := NewContainer()
+	c.lineSuffix = suffix
+	c.ignoreLastLineSuffix = ignore
+	return c
+}
+
 type Container struct {
-	list []Element
+	list                 []Element
+	lineSuffix           string
+	ignoreLastLineSuffix bool
 }
 
 func (c *Container) Append(f Element) {
@@ -21,13 +30,16 @@ func (c *Container) Append(f Element) {
 }
 
 // Render 将container输出为string
-func (c *Container) Render(lineSuffix string) string {
+func (c *Container) Render() string {
 	var sb strings.Builder
 
-	for _, e := range c.list {
+	for i, e := range c.list {
 		sb.WriteString(e.Format())
-		if len(lineSuffix) > 0 {
-			sb.WriteString(lineSuffix)
+		if len(c.lineSuffix) > 0 {
+			if c.ignoreLastLineSuffix && i == len(c.list)-1 {
+				break
+			}
+			sb.WriteString(c.lineSuffix)
 		}
 	}
 	return sb.String()

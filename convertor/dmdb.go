@@ -29,7 +29,7 @@ var mysqlWithDMDatatypeMapping = map[string]string{
 	"tinyint":   "int",
 	"smallint":  "smallint",
 	"mediumint": "int",
-	"decimal":   "decimal",
+	"decimal":   "numeric",
 	"dec":       "dec",
 	"float":     "float",
 	"double":    "double",
@@ -61,7 +61,7 @@ func NewDMDB(sqlTokenizer *sqlparser.Tokenizer) *DMDB {
 }
 
 func (o *DMDB) Exec() (string, error) {
-	var container = NewContainer()
+	var container = NewContainerWithSuffix("\n", true)
 
 	for {
 		st, err := sqlparser.ParseNext(o.sqlTokenizer)
@@ -71,8 +71,8 @@ func (o *DMDB) Exec() (string, error) {
 			}
 		}
 
-		switch ddl := st.(type) {
 		// TODO view table
+		switch ddl := st.(type) {
 		case *sqlparser.DDL:
 			switch ddl.Action {
 			case sqlparser.DropStr:
@@ -80,14 +80,14 @@ func (o *DMDB) Exec() (string, error) {
 			case sqlparser.CreateStr:
 				container.Append(&dmdbCreateTable{
 					DDL:                     ddl,
-					columnContainer:         NewContainer(),
-					columnCommentsContainer: NewContainer(),
-					indexContainer:          NewContainer(),
+					columnContainer:         NewContainerWithSuffix(",\n", true),
+					columnCommentsContainer: NewContainerWithSuffix("\n", false),
+					indexContainer:          NewContainerWithSuffix("\n", false),
 				})
 			}
 		}
 	}
-	return container.Render("\n"), nil
+	return container.Render(), nil
 }
 
 type dmdbCreateTable struct {
@@ -119,11 +119,11 @@ func (o *dmdbCreateTable) Format() string {
 	}
 
 	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", tableName))
-	o.sb.WriteString(o.columnContainer.Render(",\n"))
+	o.sb.WriteString(o.columnContainer.Render())
 	o.sb.WriteString(");\n")
 
 	// table index
-	o.sb.WriteString(o.indexContainer.Render("\n"))
+	o.sb.WriteString(o.indexContainer.Render())
 
 	// table comment
 	opt := parseMysqlTableOptions(o.DDL.TableSpec.Options)
@@ -132,7 +132,7 @@ func (o *dmdbCreateTable) Format() string {
 	}
 
 	// table column comment
-	o.sb.WriteString(o.columnCommentsContainer.Render("\n"))
+	o.sb.WriteString(o.columnCommentsContainer.Render())
 	return o.sb.String()
 }
 
@@ -169,11 +169,17 @@ type dmdbTableColumn struct {
 func (o *dmdbTableColumn) Format() string {
 	var sb = &strings.Builder{}
 
-	columnName := o.ColumnDefinition.Name
+	columnName := o.ColumnDefinition.Name.String()
 	columnType := o.ColumnDefinition.Type
 
 	// column name
-	sb.WriteString(columnName.String())
+	if IsDMKeyword(columnName) {
+		sb.WriteByte('"')
+		sb.WriteString(columnName)
+		sb.WriteByte('"')
+	} else {
+		sb.WriteString(columnName)
+	}
 	sb.WriteByte(' ')
 
 	// column type name
@@ -199,7 +205,6 @@ func (o *dmdbTableColumn) Format() string {
 func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnType sqlparser.ColumnType) {
 	switch columnType.Type {
 	case "varchar", "varbinary", "char", "binary",
-		"int", "integer", "bigint", "bit", "tinyint", "smallint", "mediumint",
 		"tinytext":
 		if columnType.Length != nil {
 			num, err := strconv.ParseInt(string(columnType.Length.Val), 0, 64)
@@ -224,7 +229,8 @@ func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnType sqlpa
 		sb.WriteString(fmt.Sprintf("(%s)", strings.Join(columnType.EnumValues, ", ")))
 	case "text", "mediumtext", "longtext",
 		"boolean", "bool",
-		"date", "datetime":
+		"date", "datetime",
+		"int", "integer", "bigint", "bit", "tinyint", "smallint", "mediumint":
 		// ignore
 	default:
 		log.Fatalf("undeliverable date type '%v'", columnType)
