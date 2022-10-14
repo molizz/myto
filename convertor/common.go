@@ -1,9 +1,10 @@
 package convertor
 
 import (
-	"github.com/xwb1989/sqlparser"
 	"strings"
 	"unicode"
+
+	"github.com/xwb1989/sqlparser"
 )
 
 type TableOptions struct {
@@ -47,18 +48,22 @@ func parseMysqlTableOptions(options string) *TableOptions {
 func buildPKName(indexColumns []*sqlparser.IndexColumn) string {
 	var sb strings.Builder
 	sb.WriteString("pk_")
-	sb.WriteString(joinIndexColumns(indexColumns, "_"))
+	sb.WriteString(joinIndexColumns(indexColumns, "_", nil))
 	return sb.String()
 }
 
-func buildIndexColumns(indexColumns []*sqlparser.IndexColumn) string {
-	return joinIndexColumns(indexColumns, ", ")
+func buildIndexColumns(indexColumns []*sqlparser.IndexColumn, keyFn func(columnName string) string) string {
+	return joinIndexColumns(indexColumns, ", ", keyFn)
 }
 
-func joinIndexColumns(indexColumns []*sqlparser.IndexColumn, sep string) string {
+func joinIndexColumns(indexColumns []*sqlparser.IndexColumn, sep string, keyFn func(columnName string) string) string {
 	var sb strings.Builder
 	for i, col := range indexColumns {
-		sb.WriteString(col.Column.String())
+		columnName := col.Column.String()
+		if keyFn != nil {
+			columnName = keyFn(columnName)
+		}
+		sb.WriteString(columnName)
 		if i != (len(indexColumns) - 1) {
 			sb.WriteString(sep)
 		}

@@ -61,7 +61,7 @@ func NewDMDB(sqlTokenizer *sqlparser.Tokenizer) *DMDB {
 }
 
 func (o *DMDB) Exec() (string, error) {
-	var container = NewContainerWithSuffix("\n\\\n", true)
+	var container = NewContainerWithSuffix("\n/\n", true)
 
 	for {
 		st, err := sqlparser.ParseNext(o.sqlTokenizer)
@@ -81,8 +81,8 @@ func (o *DMDB) Exec() (string, error) {
 				container.Append(&dmdbCreateTable{
 					DDL:                     ddl,
 					columnContainer:         NewContainerWithSuffix(",\n", true),
-					columnCommentsContainer: NewContainerWithSuffix("\n\\\n", true),
-					indexContainer:          NewContainerWithSuffix("\n\\\n", false),
+					columnCommentsContainer: NewContainerWithSuffix("\n/\n", true),
+					indexContainer:          NewContainerWithSuffix("\n", false),
 				})
 			}
 		}
@@ -120,7 +120,7 @@ func (o *dmdbCreateTable) Format() string {
 
 	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", tableName))
 	o.sb.WriteString(o.columnContainer.Render())
-	o.sb.WriteString(");\n\\\n")
+	o.sb.WriteString(");\n/\n")
 
 	// table index
 	o.sb.WriteString(o.indexContainer.Render())
@@ -128,7 +128,7 @@ func (o *dmdbCreateTable) Format() string {
 	// table comment
 	opt := parseMysqlTableOptions(o.DDL.TableSpec.Options)
 	if comment, found := opt.options["comment"]; found {
-		o.sb.WriteString(fmt.Sprintf("COMMENT ON TABLE %v IS '%v';\n\\\n", tableName, comment))
+		o.sb.WriteString(fmt.Sprintf("COMMENT ON TABLE %v IS '%v';\n/\n", tableName, comment))
 	}
 
 	// table column comment
@@ -146,18 +146,25 @@ func (t *dmdbTableIndex) Format() string {
 	var indexName = t.IndexDefinition.Info.Name.String()
 	var sb strings.Builder
 
+	buildDMKeywordColumnFn := func(c string) string {
+		if IsDMKeyword(c) {
+			return fmt.Sprintf(`"%s"`, c)
+		}
+		return c
+	}
+
 	if info.Primary {
 		// 主键索引
 		_, _ = fmt.Fprintf(&sb, "ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s);",
-			t.tableName, buildPKName(t.IndexDefinition.Columns), buildIndexColumns(t.IndexDefinition.Columns))
+			t.tableName, buildPKName(t.IndexDefinition.Columns), buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	} else if info.Unique {
 		// 唯一索引
 		_, _ = fmt.Fprintf(&sb, "CREATE UNIQUE INDEX %s ON %s(%s);",
-			indexName, t.tableName, buildIndexColumns(t.IndexDefinition.Columns))
+			indexName, t.tableName, buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	} else {
 		// 普通索引
 		_, _ = fmt.Fprintf(&sb, "CREATE INDEX %s ON %s(%s);",
-			indexName, t.tableName, buildIndexColumns(t.IndexDefinition.Columns))
+			indexName, t.tableName, buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	}
 	return sb.String()
 }
