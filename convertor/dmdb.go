@@ -128,7 +128,7 @@ func (o *dmdbCreateTable) Format() string {
 	// table comment
 	opt := parseMysqlTableOptions(o.DDL.TableSpec.Options)
 	if comment, found := opt.options["comment"]; found {
-		o.sb.WriteString(fmt.Sprintf("COMMENT ON TABLE %v IS '%v';\n", tableName, comment))
+		o.sb.WriteString(fmt.Sprintf("COMMENT ON TABLE %v IS '%v';\n\\\n", tableName, comment))
 	}
 
 	// table column comment
