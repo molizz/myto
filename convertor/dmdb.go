@@ -251,8 +251,12 @@ type dmdbColumnComment struct {
 
 func (d *dmdbColumnComment) Format() string {
 	if d.ColumnDefinition.Type.Comment != nil {
+		columnName := d.ColumnDefinition.Name.String()
+		if IsDMKeyword(columnName) {
+			columnName = fmt.Sprintf(`"%s"`, columnName)
+		}
 		return fmt.Sprintf(`COMMENT ON COLUMN %s.%s IS '%s';`,
-			d.tableName, d.ColumnDefinition.Name, d.ColumnDefinition.Type.Comment.Val)
+			d.tableName, columnName, d.ColumnDefinition.Type.Comment.Val)
 	}
 	return ""
 }
