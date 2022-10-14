@@ -48,8 +48,8 @@ var mysqlWithDMDatatypeMapping = map[string]string{
 	"date":     "datetime",
 	"datetime": "datetime",
 
-	"enum": "enum",
-	"set":  "set",
+	"enum": "varchar2",
+	"set":  "varchar2",
 }
 
 type DMDB struct {
@@ -61,7 +61,7 @@ func NewDMDB(sqlTokenizer *sqlparser.Tokenizer) *DMDB {
 }
 
 func (o *DMDB) Exec() (string, error) {
-	var container = NewContainerWithSuffix("\n", true)
+	var container = NewContainerWithSuffix("\n\\\n", true)
 
 	for {
 		st, err := sqlparser.ParseNext(o.sqlTokenizer)
@@ -81,8 +81,8 @@ func (o *DMDB) Exec() (string, error) {
 				container.Append(&dmdbCreateTable{
 					DDL:                     ddl,
 					columnContainer:         NewContainerWithSuffix(",\n", true),
-					columnCommentsContainer: NewContainerWithSuffix("\n", false),
-					indexContainer:          NewContainerWithSuffix("\n", false),
+					columnCommentsContainer: NewContainerWithSuffix("\n\\\n", true),
+					indexContainer:          NewContainerWithSuffix("\n\\\n", false),
 				})
 			}
 		}
@@ -120,7 +120,7 @@ func (o *dmdbCreateTable) Format() string {
 
 	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", tableName))
 	o.sb.WriteString(o.columnContainer.Render())
-	o.sb.WriteString(");\n")
+	o.sb.WriteString(");\n\\\n")
 
 	// table index
 	o.sb.WriteString(o.indexContainer.Render())
@@ -191,7 +191,7 @@ func (o *dmdbTableColumn) Format() string {
 	}
 
 	// column type
-	o.formatColumnType(sb, columnType)
+	o.formatColumnType(sb, columnName, columnType)
 	sb.WriteByte(' ')
 
 	// column default(NULL or NOT NULL)
@@ -202,7 +202,7 @@ func (o *dmdbTableColumn) Format() string {
 	return sb.String()
 }
 
-func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnType sqlparser.ColumnType) {
+func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnName string, columnType sqlparser.ColumnType) {
 	switch columnType.Type {
 	case "varchar", "varbinary", "char", "binary",
 		"tinytext":
@@ -226,7 +226,7 @@ func (o *dmdbTableColumn) formatColumnType(sb *strings.Builder, columnType sqlpa
 			sb.WriteString(fmt.Sprintf("(%v,0)", columnType.Length))
 		}
 	case "enum", "set":
-		sb.WriteString(fmt.Sprintf("(%s)", strings.Join(columnType.EnumValues, ", ")))
+		sb.WriteString(fmt.Sprintf("(64) CHECK(%s IN (%s))", columnName, strings.Join(columnType.EnumValues, ", ")))
 	case "text", "mediumtext", "longtext",
 		"boolean", "bool",
 		"date", "datetime",
