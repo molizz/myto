@@ -120,7 +120,7 @@ func (o *dmdbCreateTable) Format() string {
 		})
 	}
 
-	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", tableName))
+	o.sb.WriteString(fmt.Sprintf("CREATE TABLE %s (\n", buildTableName(tableName)))
 	o.sb.WriteString(o.columnContainer.Render())
 	o.sb.WriteString(");\n")
 
@@ -130,7 +130,7 @@ func (o *dmdbCreateTable) Format() string {
 	// table comment
 	opt := parseMysqlTableOptions(o.DDL.TableSpec.Options)
 	if comment, found := opt.options["comment"]; found {
-		o.sb.WriteString(fmt.Sprintf("COMMENT ON TABLE %v IS '%v';\n/\n", tableName, comment))
+		o.sb.WriteString(fmt.Sprintf("COMMENT ON TABLE %v IS '%v';\n/\n", buildTableName(tableName), comment))
 	}
 
 	// table column comment
@@ -160,20 +160,20 @@ func (t *dmdbTableIndex) Format() string {
 	if info.Primary {
 		// 主键索引
 		_, _ = fmt.Fprintf(&sb, "ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s);",
-			t.tableName,
+			buildTableName(t.tableName),
 			buildPKName(t.tableName, t.IndexDefinition.Columns),
 			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	} else if info.Unique {
 		// 唯一索引
 		_, _ = fmt.Fprintf(&sb, "CREATE UNIQUE INDEX %s ON %s(%s);",
 			buildIdxName("unq_", t.tableName, indexName),
-			t.tableName,
+			buildTableName(t.tableName),
 			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	} else {
 		// 普通索引
 		_, _ = fmt.Fprintf(&sb, "CREATE INDEX %s ON %s(%s);",
 			buildIdxName("idx_", t.tableName, indexName),
-			t.tableName,
+			buildTableName(t.tableName),
 			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
 	}
 	return sb.String()
@@ -190,13 +190,7 @@ func (o *dmdbTableColumn) Format() string {
 	columnType := o.ColumnDefinition.Type
 
 	// column name
-	if IsDMKeyword(columnName) {
-		sb.WriteByte('"')
-		sb.WriteString(columnName)
-		sb.WriteByte('"')
-	} else {
-		sb.WriteString(columnName)
-	}
+	sb.WriteString(buildColumnName(columnName))
 	sb.WriteByte(' ')
 
 	// column type name
@@ -263,12 +257,9 @@ type dmdbColumnComment struct {
 
 func (d *dmdbColumnComment) Format() string {
 	if d.ColumnDefinition.Type.Comment != nil {
-		columnName := d.ColumnDefinition.Name.String()
-		if IsDMKeyword(columnName) {
-			columnName = fmt.Sprintf(`"%s"`, columnName)
-		}
+		columnName := buildColumnName(d.ColumnDefinition.Name.String())
 		return fmt.Sprintf(`COMMENT ON COLUMN %s.%s IS '%s';`,
-			d.tableName, columnName, d.ColumnDefinition.Type.Comment.Val)
+			buildTableName(d.tableName), columnName, d.ColumnDefinition.Type.Comment.Val)
 	}
 	return ""
 }
@@ -283,7 +274,21 @@ func (d *dmdbDropTableIfExists) Format() string {
    EXECUTE IMMEDIATE 'DROP TABLE %s';
 EXCEPTION
    WHEN OTHERS THEN NULL;
-END;`, d.Table.Name.String())
+END;`, buildTableName(d.Table.Name.String()))
 	}
 	return ""
+}
+
+func buildColumnName(columnName string) string {
+	if IsDMKeyword(columnName) {
+		fmt.Sprintf(`"%s"`, columnName)
+	}
+	return columnName
+}
+
+func buildTableName(tableName string) string {
+	if IsDMKeyword(tableName) {
+		return fmt.Sprintf(`"%s"`, tableName)
+	}
+	return tableName
 }
