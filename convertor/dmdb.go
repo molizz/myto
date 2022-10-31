@@ -152,13 +152,6 @@ func (t *dmdbTableIndex) Format() string {
 	var indexName = t.IndexDefinition.Info.Name.String()
 	var sb strings.Builder
 
-	buildDMKeywordColumnFn := func(c string) string {
-		if IsDMKeyword(c) {
-			return fmt.Sprintf(`"%s"`, c)
-		}
-		return c
-	}
-
 	// 下面的indexName 会加上表名的原因是因为在达梦（pg等数据库）中，索引名称是数据库下唯一的
 	// 所以，如果sql查询语句中存在 force index的语法，应该去掉
 	if info.Primary {
@@ -166,19 +159,19 @@ func (t *dmdbTableIndex) Format() string {
 		_, _ = fmt.Fprintf(&sb, "ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s);",
 			buildTableName(t.tableName),
 			buildPKName(t.tableName, t.IndexDefinition.Columns),
-			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
+			buildIndexColumns(t.IndexDefinition.Columns, buildColumnName))
 	} else if info.Unique {
 		// 唯一索引
 		_, _ = fmt.Fprintf(&sb, "CREATE UNIQUE INDEX %s ON %s(%s);",
 			buildIdxName("unq_", t.tableName, indexName),
 			buildTableName(t.tableName),
-			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
+			buildIndexColumns(t.IndexDefinition.Columns, buildColumnName))
 	} else {
 		// 普通索引
 		_, _ = fmt.Fprintf(&sb, "CREATE INDEX %s ON %s(%s);",
 			buildIdxName("idx_", t.tableName, indexName),
 			buildTableName(t.tableName),
-			buildIndexColumns(t.IndexDefinition.Columns, buildDMKeywordColumnFn))
+			buildIndexColumns(t.IndexDefinition.Columns, buildColumnName))
 	}
 	return sb.String()
 }
@@ -290,7 +283,7 @@ END;`, buildTableName(d.Table.Name.String()))
 
 func buildColumnName(columnName string) string {
 	if IsDMKeyword(columnName) {
-		return fmt.Sprintf(`"%s"`, columnName)
+		return fmt.Sprintf(`"%s"`, strings.ToUpper(columnName))
 	}
 	return columnName
 }
