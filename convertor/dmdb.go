@@ -283,7 +283,7 @@ END;`, buildTableName(d.Table.Name.String()))
 
 func buildColumnName(columnName string) string {
 	if IsDMKeyword(columnName) {
-		return fmt.Sprintf(`"%s"`, strings.ToUpper(columnName))
+		return fmt.Sprintf(`"%s"`, strings.ToLower(columnName))
 	}
 	return columnName
 }
